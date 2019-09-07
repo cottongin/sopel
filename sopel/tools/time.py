@@ -63,7 +63,7 @@ def get_timezone(db=None, config=None, zone=None, nick=None, channel=None):
 
     If `db` is not given, or given but not set up, steps 2 and 3 will be
     skipped. If `config` is not given, step 4 will be skipped. If no step
-    yeilds a valid timezone, `None` is returned.
+    yields a valid timezone, `None` is returned.
 
     Valid timezones are those present in the IANA Time Zone Database. Prior to
     checking timezones, two translations are made to make the zone names more
