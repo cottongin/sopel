@@ -228,8 +228,8 @@ def mw_info(bot, trigger, match=None):
         say_snippet(bot, trigger, match.group(1), unquote(match.group(2)), show_url=False)
 
 
-@commands('w', 'wiki', 'wik')
-@example('.w San Francisco')
+@commands('wiki', 'wik')
+@example('.wiki San Francisco')
 def wikipedia(bot, trigger):
     lang = bot.config.wikipedia.default_lang
 

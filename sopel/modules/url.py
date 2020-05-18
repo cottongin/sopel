@@ -185,6 +185,9 @@ def title_auto(bot, trigger):
         trigger, exclusion_char=bot.config.url.exclusion_char, clean=True)
 
     for url, title, domain, tinyurl in process_urls(bot, trigger, urls):
+        if "chases" in trigger.sender.lower():
+            if "youtube" in title.lower():
+                return
         message = '[ %s ] - %s' % (title, domain)
         if tinyurl:
             message += ' ( %s )' % tinyurl
