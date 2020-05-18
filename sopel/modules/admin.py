@@ -155,7 +155,7 @@ def temporary_part(bot, trigger):
     _part(bot, channel, part_msg, save=False)
 
 
-@sopel.module.require_privmsg
+# @sopel.module.require_privmsg
 @sopel.module.require_owner
 @sopel.module.commands('restart')
 @sopel.module.priority('low')
@@ -168,7 +168,7 @@ def restart(bot, trigger):
     bot.restart(quit_message)
 
 
-@sopel.module.require_privmsg
+# @sopel.module.require_privmsg
 @sopel.module.require_owner
 @sopel.module.commands('quit')
 @sopel.module.priority('low')
