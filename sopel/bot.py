@@ -71,6 +71,9 @@ class Sopel(irc.AbstractBot):
         self._command_groups = collections.defaultdict(list)
         """A mapping of plugin names to lists of their commands."""
 
+        self._alt_command_groups = collections.defaultdict(dict)
+        """A mapping of plugin names to lists of their alternate commands."""
+
         self._times = {}
         """
         A dictionary mapping lowercased nicks to dictionaries which map
@@ -135,6 +138,12 @@ class Sopel(irc.AbstractBot):
         """A mapping of plugin names to lists of their commands."""
         # This was supposed to be deprecated, but the built-in help plugin needs it
         return self._command_groups
+
+    @property
+    def alt_command_groups(self):
+        """A mapping of plugin names to lists of their alternate commands."""
+        # This was supposed to be deprecated, but the built-in help plugin needs it
+        return self._alt_command_groups
 
     @property
     def hostmask(self):
@@ -472,9 +481,12 @@ class Sopel(irc.AbstractBot):
             if commands:
                 plugin_name = callbl.__module__.rsplit('.', 1)[-1]
                 # TODO doc and make decorator for this. Not sure if this is how
-                # it should work yet, so not making it public for 6.0.
+                # it should work yet, so not making it public for 6.0.a
                 category = getattr(callbl, 'category', plugin_name)
                 self._command_groups[category].append(commands[0])
+                # self._alt_command_groups[category][commands[0]] = []
+                self._alt_command_groups[category][commands[0]] = commands[1:]
+
 
             for command, docs in callbl._docs.items():
                 self.doc[command] = docs
