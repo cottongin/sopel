@@ -232,6 +232,7 @@ def parse_reply_myinfo(bot, trigger):
 @module.require_owner()
 @module.commands('useserviceauth')
 def enable_service_auth(bot, trigger):
+    """Enables the bot to auth you via network services"""
     if bot.config.core.owner_account:
         return
     if 'account-tag' not in bot.enabled_capabilities:

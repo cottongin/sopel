@@ -12,10 +12,13 @@ https://sopel.chat
 from __future__ import unicode_literals, absolute_import, print_function, division
 
 import re
+import pickle
+from pathlib import Path
 
 import dns.resolver
 import ipaddress
 import requests
+import pendulum
 
 from sopel import __version__, module, tools
 from sopel.config.types import ListAttribute, StaticSection, ValidatedAttribute
@@ -27,8 +30,13 @@ try:
 except ImportError:
     from urlparse import urlparse
 
-USER_AGENT = 'Sopel/{} (https://sopel.chat)'.format(__version__)
-default_headers = {'User-Agent': USER_AGENT}
+# USER_AGENT = 'Sopel/{} (https://sopel.chat)'.format(__version__)
+USER_AGENT = 'Mozilla/5.0 (X11; CrOS x86_64 11151.4.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.8 Safari/537.36'
+default_headers = {
+    'User-Agent': USER_AGENT,
+    'Accept-Language': "en,en-US;q=0,5",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,/;q=0.8",
+}
 # These are used to clean up the title tag before actually parsing it. Not the
 # world's best way to do this, but it'll do for now.
 title_tag_data = re.compile('<(/?)title( [^>]+)?>', re.IGNORECASE)
@@ -39,7 +47,7 @@ re_dcc = re.compile(r'(?i)dcc\ssend')
 # the title. We don't want it too high, or a link to a big file/stream will
 # just keep downloading until there's no more memory. 640k ought to be enough
 # for anybody.
-max_bytes = 655360
+max_bytes = 655360*2
 
 
 class UrlSection(StaticSection):
@@ -118,6 +126,14 @@ def setup(bot):
     if 'last_seen_url' not in bot.memory:
         bot.memory['last_seen_url'] = tools.SopelMemory()
 
+    if 'url_reposts' not in bot.memory:
+        try:
+            with open(str(Path.home())+'/linkdb.pickle', 'rb') as handle:
+                b = pickle.load(handle)
+            bot.memory['url_reposts'] = b
+        except:
+            bot.memory['url_reposts'] = tools.SopelMemory()
+
     # Initialize shortened_urls as a dict if it doesn't exist.
     if 'shortened_urls' not in bot.memory:
         bot.memory['shortened_urls'] = tools.SopelMemory()
@@ -127,6 +143,15 @@ def shutdown(bot):
     # Unset `url_exclude` and `last_seen_url`, but not `shortened_urls`;
     # clearing `shortened_urls` will increase API calls. Leaving it in memory
     # should not lead to unexpected behavior.
+    try:
+        data = {}
+        for k,v in bot.memory['url_reposts'].items():
+            data[k] = v
+        with open(str(Path.home())+'/linkdb.pickle', 'wb') as handle:
+            pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    except:
+        pass
+        
     for key in ['url_exclude', 'last_seen_url']:
         try:
             del bot.memory[key]
@@ -183,11 +208,16 @@ def title_auto(bot, trigger):
 
     urls = web.search_urls(
         trigger, exclusion_char=bot.config.url.exclusion_char, clean=True)
+    rp_urls = web.search_urls(
+        trigger, exclusion_char=bot.config.url.exclusion_char, clean=True)
+
+    check_reposts(bot, trigger, rp_urls)
+    # print(res)
 
     for url, title, domain, tinyurl in process_urls(bot, trigger, urls):
         if "chases" in trigger.sender.lower():
             if "youtube" in title.lower():
-                return
+                continue
         message = '[ %s ] - %s' % (title, domain)
         if tinyurl:
             message += ' ( %s )' % tinyurl
@@ -195,6 +225,31 @@ def title_auto(bot, trigger):
         if message != trigger:
             bot.say(message)
             bot.memory['last_seen_url'][trigger.sender] = url
+
+def check_reposts(bot, trigger, urls):
+    for url in list(urls):
+        msg = None
+        if trigger.sender not in bot.memory['url_reposts']:
+            bot.memory['url_reposts'][trigger.sender] = {}
+        if url in bot.memory['url_reposts'][trigger.sender]:
+            now = pendulum.now()
+            info = bot.memory['url_reposts'][trigger.sender][url]
+            if now.diff(info['when']).in_days() >= 30:
+                bot.memory['url_reposts'][trigger.sender].pop(url)
+            if trigger.nick == info['nick']:
+                continue
+            msg = bot.reply("\x02REPOST ALERT\x02 - {} shared that link {} ago - \x02REPOST ALERT\x02".format(
+                info['nick'],
+                now.diff(info['when']).in_words()
+            ))
+        else:
+            when = pendulum.now()
+            nick = trigger.nick
+            bot.memory['url_reposts'][trigger.sender][url] = {
+                'nick': nick,
+                'when': when
+            }
+    return
 
 
 def process_urls(bot, trigger, urls):
@@ -280,7 +335,8 @@ def check_callbacks(bot, url):
 def find_title(url, verify=True):
     """Return the title for the given URL."""
     try:
-        response = requests.get(url, stream=True, verify=verify,
+        # print(default_headers)
+        response = requests.get(url, stream=True, verify=verify, allow_redirects=True,
                                 headers=default_headers)
         content = b''
         for byte in response.iter_content(chunk_size=512):
@@ -297,6 +353,8 @@ def find_title(url, verify=True):
         UnicodeError,  # e.g. http://.example.com
     ):
         return None
+
+    # print(content)
 
     # Some cleanup that I don't really grok, but was in the original, so
     # we'll keep it (with the compiled regexes made global) for now.
