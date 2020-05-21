@@ -17,7 +17,7 @@ import re
 import dns.resolver
 import requests
 
-from sopel import __version__, module, tools
+from sopel import module, tools
 from sopel.config.types import ListAttribute, StaticSection, ValidatedAttribute
 from sopel.tools import web
 
@@ -27,8 +27,16 @@ try:
 except ImportError:
     from urlparse import urlparse
 
-USER_AGENT = 'Sopel/{} (https://sopel.chat)'.format(__version__)
-default_headers = {'User-Agent': USER_AGENT}
+USER_AGENT = (
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+    'AppleWebKit/537.36 (KHTML, like Gecko) '
+    'Chrome/78.0.3904.108 Safari/537.36'
+)
+default_headers = {
+    'User-Agent': USER_AGENT,
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,/;q=0.8',
+    'Accept-Language': 'en,en-US;q=0,5',
+}
 # These are used to clean up the title tag before actually parsing it. Not the
 # world's best way to do this, but it'll do for now.
 title_tag_data = re.compile('<(/?)title( [^>]+)?>', re.IGNORECASE)
@@ -38,8 +46,8 @@ re_dcc = re.compile(r'(?i)dcc\ssend')
 # This sets the maximum number of bytes that should be read in order to find
 # the title. We don't want it too high, or a link to a big file/stream will
 # just keep downloading until there's no more memory. 640k ought to be enough
-# for anybody.
-max_bytes = 655360
+# for anybody. (turns out it isn't)
+max_bytes = 1310720
 
 
 class UrlSection(StaticSection):
